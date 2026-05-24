@@ -149,6 +149,10 @@ jobs:
       # submission, so no code-signing certificate/secret is needed for the Store path.
       # The .msix is always produced (artifact + optional Release asset); auto-submit
       # to the Store is a separate, checkbox-gated job below.
+      - name: Install msixbundle-cli
+        if: ${{ matrix.name == 'windows' }}
+        run: cargo install msixbundle-cli
+
       - name: Build MSIX
         if: ${{ matrix.name == 'windows' }}
         run: npx -y @choochmeque/tauri-windows-bundle@latest build --arch x64 --runner npm
