@@ -1,0 +1,54 @@
+[package]
+name = "minimage"
+version = "0.1.0"
+description = "Minimage — a modern, fast image processor: resize, convert and optimize images in batch."
+authors = ["Shridhar"]
+edition = "2021"
+rust-version = "1.77"
+
+# The library that holds all app logic. `main.rs` is a thin shim that calls `run()`.
+[lib]
+name = "minimage_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# --- Image engine (kept behind the `ImageEngine` trait in src/engine.rs) ---
+image = "0.25"                 # core decode/encode/resize (pure Rust, no native C)
+resvg = "0.47"                 # SVG rasterization (re-exports usvg + tiny_skia)
+# AVIF (rav1e). asm disabled so no NASM is needed in CI/Docker/local builds.
+ravif = { version = "0.13", default-features = false, features = ["threading"] }
+# WebP. Optional native libwebp (lossy+lossless quality). When disabled
+# (e.g. cross-compiling in Docker), WebP falls back to pure-Rust lossless.
+webp = { version = "0.3", optional = true }
+oxipng = "10"                  # lossless PNG optimization (final pass)
+imagequant = "4"               # lossy palette quantization — libimagequant, the pngquant/TinyPNG engine (pure Rust)
+png = "0.17"                   # indexed-PNG encoding for quantized output
+
+rayon = "1"                    # parallel batch processing
+base64 = "0.22"                # in-memory (pasted / annotated) image transport
+chrono = { version = "0.4", default-features = false, features = ["clock"] } # filename date tokens
+anyhow = "1"
+
+[features]
+# On by default → native libwebp with lossy quality control (used by CI on
+# Windows). Disable with --no-default-features to use pure-Rust lossless WebP
+# (used by the Docker cross-build, where libwebp's SIMD can't cross-compile).
+default = []
+webp-lossy = ["dep:webp"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

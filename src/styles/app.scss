@@ -1,0 +1,1152 @@
+@use 'mixins' as *;
+
+/* ============================ app shell ============================ */
+.app {
+  display: grid;
+  grid-template-rows: var(--ip-header-h) 1fr var(--ip-footer-h);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app__body {
+  min-height: 0;
+  background: var(--ip-bg);
+
+  // The resize gutter doubles as the divider between panes.
+  .eui-splitter-gutter,
+  .eui-splitter-divider {
+    background: var(--ip-border);
+  }
+}
+
+.pane {
+  background: var(--ip-bg);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app__body.eui-splitter-collapsed {
+  flex-direction: column;
+  overflow: hidden !important;
+
+  .eui-splitter-panel {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .pane {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+/* ============================ header ============================ */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--ip-border);
+  background: var(--ip-surface);
+  backdrop-filter: blur(14px);
+  -webkit-app-region: drag;
+
+  button,
+  a,
+  .segmented {
+    -webkit-app-region: no-drag;
+  }
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.brand__mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  overflow: hidden;
+  box-shadow: 0 8px 20px -8px rgba(124, 58, 237, 0.85);
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+.brand__name {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  /* "Min" stays solid in the text color; "image" picks up the brand gradient. */
+}
+.brand__name-accent {
+  font-weight: 600;
+  background: linear-gradient(105deg, #6366f1 0%, #8b5cf6 52%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.brand__tag {
+  font-size: 11px;
+  color: var(--ip-text-faint);
+  margin-top: -2px;
+  display: block;
+}
+.brand__tag--link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  &:hover {
+    color: var(--ip-accent);
+  }
+}
+.header__actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* ============================ panel scaffold ============================ */
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px 10px;
+}
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  svg {
+    color: var(--ip-accent);
+  }
+}
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 16px 16px;
+  overflow: auto;
+  @include scrollbar;
+}
+.section {
+  padding: 14px 0;
+  border-top: 1px solid var(--ip-border);
+}
+.section:first-child {
+  border-top: none;
+}
+.section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.section__toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  border-radius: var(--ip-radius-sm);
+  &:hover .section__title {
+    color: var(--ip-accent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ip-accent);
+    outline-offset: 2px;
+  }
+}
+.section__chevron {
+  flex: none;
+  color: var(--ip-text-muted);
+  transition: transform 0.18s ease;
+}
+.section__action {
+  flex: none;
+}
+.section__content {
+  margin-top: 10px;
+}
+.section__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ip-text);
+  transition: color 0.15s ease;
+  svg {
+    color: var(--ip-accent);
+  }
+}
+
+/* ============================ dropzone ============================ */
+.dropzone {
+  margin: 12px 16px 0;
+  border: 1.5px dashed var(--ip-border-strong);
+  border-radius: var(--ip-radius);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  background: var(--ip-surface);
+  transition: border-color 0.18s ease, background 0.18s ease;
+  cursor: pointer;
+  &:hover {
+    border-color: var(--ip-accent);
+    background: var(--ip-surface-2);
+  }
+  &.is-drag {
+    border-color: var(--ip-accent);
+    background: var(--ip-gradient-soft);
+  }
+}
+.dropzone__icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--ip-gradient-soft);
+  display: grid;
+  place-items: center;
+  color: var(--ip-accent);
+  flex: none;
+}
+.dropzone__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.dropzone__text b {
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+.dropzone__text .hint {
+  margin-top: 0;
+}
+.dropzone__text .kbd {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 1px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+
+/* ============================ image grid (fluxo FileBrowser) ============================ */
+.image-grid {
+  padding: 4px 16px 18px;
+
+  .eui-fb-collection.eui-fb-thumbnail {
+    gap: 12px;
+  }
+
+  /* The annotate/preview/remove buttons reuse .tile__act styling; keep the
+     hover overlay clear of the meta row. */
+  .eui-fb-actions {
+    bottom: 3rem;
+  }
+}
+
+
+.grid-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px 8px;
+  flex-wrap: wrap;
+}
+.grid-toolbar__count {
+  font-size: 12.5px;
+  color: var(--ip-text-muted);
+  b {
+    color: var(--ip-text);
+  }
+}
+
+.media {
+  display: grid;
+  gap: 12px;
+  padding: 4px 16px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.media.is-list {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.tile {
+  position: relative;
+  border: 1px solid var(--ip-border);
+  border-radius: var(--ip-radius);
+  background: var(--ip-surface);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+  &:hover {
+    border-color: var(--ip-border-strong);
+    box-shadow: var(--ip-shadow);
+  }
+  &.is-selected {
+    border-color: var(--ip-accent);
+    box-shadow: 0 0 0 1px var(--ip-accent);
+  }
+}
+.tile__thumb {
+  aspect-ratio: 4 / 3;
+  @include checker;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+.tile__thumb-loading {
+  color: var(--ip-text-faint);
+}
+.tile__check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  background: rgba(10, 12, 20, 0.45);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  z-index: 2;
+}
+.tile.is-selected .tile__check {
+  background: var(--ip-accent);
+  border-color: transparent;
+}
+.tile__badges {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+.tile__fmt {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(10, 12, 20, 0.6);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+.tile__meta {
+  padding: 9px 10px;
+}
+.tile__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  @include truncate;
+}
+.tile__sub {
+  font-size: 11px;
+  color: var(--ip-text-faint);
+  margin-top: 2px;
+}
+.tile__actions {
+  position: absolute;
+  bottom: 52px;
+  right: 8px;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  z-index: 2;
+}
+.tile:hover .tile__actions {
+  opacity: 1;
+  transform: none;
+}
+.tile__act {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 12, 20, 0.62);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  &:hover {
+    background: var(--ip-accent);
+  }
+}
+
+/* list variant */
+.tile.is-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+}
+.tile.is-row .tile__thumb {
+  width: 60px;
+  height: 46px;
+  aspect-ratio: auto;
+  border-radius: 8px;
+  flex: none;
+}
+.tile.is-row .tile__meta {
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+}
+.tile.is-row .tile__check {
+  position: static;
+  background: var(--ip-surface-3);
+  border-color: var(--ip-border);
+  color: var(--ip-text);
+}
+.tile.is-row.is-selected .tile__check {
+  background: var(--ip-accent);
+  color: #fff;
+}
+.tile.is-row .tile__actions {
+  position: static;
+  opacity: 1;
+  transform: none;
+}
+.tile.is-row .tile__act {
+  background: var(--ip-surface-2);
+  color: var(--ip-text-muted);
+  &:hover {
+    background: var(--ip-accent);
+    color: #fff;
+  }
+}
+
+/* ============================ empty state ============================ */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  text-align: center;
+  color: var(--ip-text-muted);
+}
+.empty__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--ip-gradient-soft);
+  display: grid;
+  place-items: center;
+  color: var(--ip-accent);
+}
+
+/* ============================ matrix rows (size / format) ============================ */
+.row-card {
+  border: 1px solid var(--ip-border);
+  border-radius: var(--ip-radius);
+  background: var(--ip-surface);
+  padding: 12px;
+  margin-bottom: 10px;
+  animation: ip-fade-up 0.18s ease;
+}
+.row-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.row-card__title-input {
+  font-weight: 700;
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 3px 7px;
+  color: var(--ip-text);
+  min-width: 0;
+  flex: 1;
+  &:hover {
+    border-color: var(--ip-border);
+  }
+  &:focus {
+    @include focus-ring;
+    background: var(--ip-surface-2);
+  }
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+.row-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.quality-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.quality-row__val {
+  font-family: var(--ip-mono);
+  font-size: 12px;
+  min-width: 34px;
+  text-align: right;
+  color: var(--ip-text);
+}
+
+.preset-pop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.preset-chip {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--ip-border);
+  background: var(--ip-surface-2);
+  color: var(--ip-text-muted);
+  cursor: pointer;
+  &:hover {
+    border-color: var(--ip-accent);
+    color: var(--ip-text);
+    background: var(--ip-surface-3);
+  }
+}
+
+/* format picker grid */
+.fmt-pick {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.fmt-pick button {
+  appearance: none;
+  border: 1px solid var(--ip-border);
+  background: var(--ip-surface-2);
+  border-radius: 9px;
+  padding: 9px 4px;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--ip-text-muted);
+  cursor: pointer;
+  &:hover {
+    border-color: var(--ip-accent);
+    color: var(--ip-text);
+  }
+}
+
+/* ============================ filename template ============================ */
+.template-preview {
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--ip-surface);
+  border: 1px solid var(--ip-border);
+  font-family: var(--ip-mono);
+  font-size: 12px;
+  color: var(--ip-text-muted);
+  word-break: break-all;
+  b {
+    color: var(--ip-ok);
+  }
+}
+.token-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+.warn-box {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ip-warn) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ip-warn) 45%, transparent);
+  font-size: 12.5px;
+  > svg {
+    color: var(--ip-warn);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  code {
+    font-family: var(--ip-mono);
+    font-size: 11.5px;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--ip-surface);
+  }
+}
+.token {
+  font-family: var(--ip-mono);
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--ip-border);
+  background: var(--ip-surface-2);
+  color: var(--ip-accent);
+  cursor: pointer;
+  &:hover {
+    background: var(--ip-surface-3);
+    border-color: var(--ip-accent);
+  }
+}
+/* a "fix this" token chip inside the collision warning — carries a reason */
+.token--fix {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-color: color-mix(in srgb, var(--ip-warn) 55%, var(--ip-border));
+  background: var(--ip-surface);
+  color: var(--ip-text);
+  svg {
+    color: var(--ip-warn);
+    flex-shrink: 0;
+  }
+  &:hover {
+    border-color: var(--ip-warn);
+  }
+}
+.token__why {
+  color: var(--ip-text-faint);
+  font-family: var(--ip-system, inherit);
+}
+
+/* ============================ footer / process ============================ */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 18px;
+  border-top: 1px solid var(--ip-border);
+  background: var(--ip-surface);
+  backdrop-filter: blur(14px);
+}
+.footer__stats {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.stat__num {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.stat__label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ip-text-faint);
+}
+.stat__num.is-grad {
+  @include grad-text;
+}
+.footer__progress {
+  flex: 1;
+  min-width: 160px;
+  max-width: 360px;
+}
+.pbar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ip-surface-3);
+  overflow: hidden;
+}
+.pbar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ip-gradient);
+  transition: width 0.2s ease;
+}
+.pbar__label {
+  font-size: 11px;
+  color: var(--ip-text-muted);
+  margin-top: 5px;
+  @include truncate;
+}
+
+/* ============================ modal ============================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 6, 12, 0.66);
+  backdrop-filter: blur(6px);
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  animation: ip-fade-up 0.16s ease;
+}
+.modal {
+  background: var(--ip-elevated);
+  border: 1px solid var(--ip-border);
+  border-radius: var(--ip-radius-lg);
+  box-shadow: var(--ip-shadow-lg);
+  width: min(1100px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ip-border);
+}
+.modal__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.modal__body {
+  padding: 16px 18px;
+  overflow: auto;
+  @include scrollbar;
+}
+.modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--ip-border);
+}
+
+/* image-editor modal: fill a tall, fixed area; only the canvas scrolls — the
+   editor's own toolbar/footer stay pinned (no page-level scroll of the tools). */
+.modal--editor {
+  height: 88vh;
+}
+.modal__body--editor {
+  padding: 0;
+  flex: 1;
+  min-height: 0; /* let the flex child shrink so the editor can own the height */
+  overflow: hidden;
+}
+/* The embedded ImageEditor is a flex column (toolbar / canvas / footer). Make the
+   canvas area grow to fill, so there's no empty gap and the toolbar+footer never
+   need page scrolling to reach. */
+.modal__body--editor .eui-image-editor {
+  height: 100%;
+}
+.modal__body--editor .eui-image-editor-canvas-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* compare slider */
+.compare {
+  position: relative;
+  width: 100%;
+  border-radius: var(--ip-radius);
+  overflow: hidden;
+  @include checker(20px);
+  user-select: none;
+  touch-action: none;
+}
+.compare img {
+  display: block;
+  width: 100%;
+  pointer-events: none;
+}
+.compare__after {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.compare__after img {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: auto;
+  max-width: none;
+}
+.compare__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  cursor: ew-resize;
+}
+.compare__grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  color: #111;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--ip-shadow);
+}
+.compare__tag {
+  position: absolute;
+  top: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(10, 12, 20, 0.6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: blur(4px);
+}
+
+/* ============================ results table ============================ */
+.results {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.results th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ip-text-faint);
+  padding: 8px 10px;
+  position: sticky;
+  top: 0;
+  background: var(--ip-elevated);
+  border-bottom: 1px solid var(--ip-border);
+}
+.results td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ip-border);
+  vertical-align: middle;
+}
+.results tr:hover td {
+  background: var(--ip-surface);
+}
+.res-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+}
+.res-status.ok {
+  color: var(--ip-ok);
+}
+.res-status.skipped {
+  color: var(--ip-warn);
+}
+.res-status.error {
+  color: var(--ip-err);
+}
+.delta {
+  font-weight: 700;
+}
+.delta.good {
+  color: var(--ip-ok);
+}
+.delta.bad {
+  color: var(--ip-err);
+}
+.results tr.is-best td {
+  background: color-mix(in srgb, var(--ip-ok) 9%, transparent);
+}
+.results tr.is-best:hover td {
+  background: color-mix(in srgb, var(--ip-ok) 14%, transparent);
+}
+.best-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ip-ok);
+  background: color-mix(in srgb, var(--ip-ok) 16%, transparent);
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+/* ============================ presets bar ============================ */
+.presets-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border: 1px solid var(--ip-border);
+  border-radius: var(--ip-radius);
+  background: var(--ip-surface);
+  flex-wrap: wrap;
+}
+.presets-bar__icon {
+  color: var(--ip-accent);
+}
+.presets-bar__label {
+  font-size: 13px;
+  font-weight: 700;
+}
+.presets-bar__name {
+  flex: 1;
+  min-width: 110px;
+}
+.presets-bar__menu {
+  position: relative;
+}
+.presets-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 220px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px;
+  border-radius: var(--ip-radius);
+  border: 1px solid var(--ip-border);
+  background: var(--ip-elevated);
+  box-shadow: var(--ip-shadow-lg);
+  @include scrollbar;
+}
+.presets-pop__empty {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: var(--ip-text-faint);
+  text-align: center;
+}
+.presets-pop__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ip-text);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-align: left;
+  &:hover {
+    background: var(--ip-surface-2);
+  }
+}
+.presets-pop__name {
+  flex: 1;
+  min-width: 0;
+  @include truncate;
+  font-weight: 600;
+}
+.presets-pop__del {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+/* ============================ advanced effects ============================ */
+.adv-intro {
+  font-size: 12px;
+  color: var(--ip-text-muted);
+  margin: 0 0 12px;
+}
+.adv-group {
+  border: 1px solid var(--ip-border);
+  border-radius: var(--ip-radius);
+  background: var(--ip-surface);
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.adv-group__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ip-text);
+  margin-bottom: 8px;
+  svg {
+    color: var(--ip-accent);
+  }
+}
+.adv-group__body {
+  margin-top: 10px;
+}
+.slider-row {
+  margin-top: 10px;
+}
+.slider-row:first-child {
+  margin-top: 0;
+}
+.color-swatch {
+  width: 34px;
+  height: 28px;
+  border: 1px solid var(--ip-border);
+  border-radius: 7px;
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+  flex: none;
+}
+.wm-preview {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid var(--ip-border);
+  @include checker(10px);
+  flex: none;
+}
+
+/* ============================ info hints (rich tooltips) ============================ */
+.info-hint {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ip-text-faint);
+  display: inline-grid;
+  place-items: center;
+  cursor: help;
+  transition: color 0.15s ease, background 0.15s ease;
+  vertical-align: middle;
+  &:hover {
+    color: var(--ip-accent);
+    background: var(--ip-surface-2);
+  }
+}
+.label-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* The tooltip body fluxo-ui renders for our hints. Scoped via .rich-hint so it
+   styles only our content, riding on top of fluxo's tooltip surface. */
+.rich-hint {
+  max-width: 260px;
+  font-family: var(--ip-font);
+  line-height: 1.5;
+  text-align: left;
+}
+.rich-hint__title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ip-text);
+  margin-bottom: 4px;
+}
+.rich-hint__body {
+  font-size: 12px;
+  color: var(--ip-text-muted);
+  b {
+    color: var(--ip-text);
+    font-weight: 600;
+  }
+}
+.rich-hint__tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--ip-border);
+  font-size: 11.5px;
+  color: var(--ip-text);
+  svg {
+    flex: none;
+    margin-top: 2px;
+    color: var(--ip-accent);
+  }
+}
+
+/* ============================ small bits ============================ */
+.iconbtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ip-text-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  &:hover {
+    background: var(--ip-surface-2);
+    color: var(--ip-text);
+  }
+  &.danger:hover {
+    color: var(--ip-err);
+  }
+}

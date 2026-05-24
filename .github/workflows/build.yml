@@ -1,0 +1,299 @@
+name: Build & Release
+
+# Manual trigger. Choose which OSes to build — only the selected ones run.
+on:
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: 'Build Windows (.exe / .msi / .msix)'
+        type: boolean
+        default: true
+      macos:
+        description: 'Build macOS (.dmg)'
+        type: boolean
+        default: false
+      linux:
+        description: 'Build Linux (.deb / .AppImage)'
+        type: boolean
+        default: false
+      version:
+        description: 'Version (e.g. 0.1.0). Blank = use tauri.conf.json.'
+        type: string
+        default: ''
+      release:
+        description: 'Publish a GitHub Release (otherwise just upload artifacts)'
+        type: boolean
+        default: false
+      store:
+        description: 'Publish the MSIX to Microsoft Store (free apps only; needs Partner Center secrets + existing listing — see notes below). The MSIX is built regardless; this only controls auto-submit.'
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark the release as a pre-release'
+        type: boolean
+        default: false
+      draft:
+        description: 'Create the release as a draft'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  # Build the job matrix from the selected OS checkboxes.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      any: ${{ steps.set.outputs.any }}
+      tag: ${{ steps.set.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - id: set
+        shell: bash
+        run: |
+          include='[]'
+          add() { include=$(echo "$include" | jq -c ". += [$1]"); }
+          if [ "${{ inputs.windows }}" = "true" ]; then add '{"name":"windows","runner":"windows-latest","args":"--bundles nsis,msi --features webp-lossy"}'; fi
+          if [ "${{ inputs.macos }}"   = "true" ]; then add '{"name":"macos","runner":"macos-latest","args":"--bundles app,dmg --features webp-lossy"}'; fi
+          if [ "${{ inputs.linux }}"   = "true" ]; then add '{"name":"linux","runner":"ubuntu-22.04","args":"--bundles deb,appimage --features webp-lossy"}'; fi
+          echo "matrix={\"include\":$include}" >> "$GITHUB_OUTPUT"
+          if [ "$include" = "[]" ]; then echo "any=false" >> "$GITHUB_OUTPUT"; else echo "any=true" >> "$GITHUB_OUTPUT"; fi
+          echo "Selected matrix: $include"
+
+          # Compute the date-stamped release tag ONCE here so every matrix job and the
+          # MSIX-attach step share an identical tag (avoids a midnight-UTC split across
+          # parallel jobs). Format: v<version>_<YYYY>_<MM>_<DD>  e.g. v0.1.0_2026_05_24
+          ver="${{ inputs.version }}"
+          if [ -z "$ver" ]; then ver=$(node -p "require('./src-tauri/tauri.conf.json').version"); fi
+          tag="v${ver}_$(date -u +%Y_%m_%d)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $tag"
+
+  build:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.any == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Linux dependencies
+        if: ${{ matrix.name == 'linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev patchelf
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.name }}
+
+      - name: Install frontend dependencies
+        run: npm install --force
+
+      - name: Override version (optional)
+        if: ${{ inputs.version != '' }}
+        shell: bash
+        run: |
+          node -e "const f='src-tauri/tauri.conf.json';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.version='${{ inputs.version }}';fs.writeFileSync(f, JSON.stringify(j,null,2)+'\n');console.log('version =', j.version)"
+
+      - name: Build (and release if requested)
+        uses: tauri-apps/tauri-action@v0
+        id: tauri
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ inputs.release && needs.prepare.outputs.tag || '' }}
+          releaseName: ${{ inputs.release && format('Minimage {0}', needs.prepare.outputs.tag) || '' }}
+          releaseBody: |
+            Minimage — batch image resizer, converter and optimizer.
+            Download the installer for your OS below.
+          releaseDraft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          args: ${{ matrix.args }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimage-${{ matrix.name }}
+          if-no-files-found: warn
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/macos/*.app
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+
+      # ── MSIX (Windows only) ──────────────────────────────────────────────────────
+      # Tauri can't emit MSIX natively, so we build it with the community packager.
+      # We build it UNSIGNED on purpose: the Microsoft Store re-signs the package on
+      # submission, so no code-signing certificate/secret is needed for the Store path.
+      # The .msix is always produced (artifact + optional Release asset); auto-submit
+      # to the Store is a separate, checkbox-gated job below.
+      - name: Build MSIX
+        if: ${{ matrix.name == 'windows' }}
+        run: npx -y @choochmeque/tauri-windows-bundle@latest --arch x64 --runner npm
+
+      - name: Upload MSIX artifact
+        if: ${{ matrix.name == 'windows' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimage-msix
+          if-no-files-found: error
+          path: |
+            src-tauri/target/msix/*.msix
+            src-tauri/target/msix/*.msixbundle
+
+      - name: Attach MSIX to GitHub Release
+        if: ${{ matrix.name == 'windows' && inputs.release }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # tauri-action created the release with the date-stamped tag computed in `prepare`.
+          tag="${{ needs.prepare.outputs.tag }}"
+          echo "Uploading MSIX assets to release $tag"
+          gh release upload "$tag" src-tauri/target/msix/*.msix src-tauri/target/msix/*.msixbundle --clobber
+
+  # Publish the freshly built MSIX to the Microsoft Store.
+  #
+  # Runs only when the "store" checkbox is ticked AND the Windows build succeeded.
+  # The MSIX itself is always built in the `build` job above and uploaded as the
+  # `minimage-msix` artifact — so you can ALWAYS grab it and submit by hand. This job
+  # only adds the optional AUTO-SUBMIT when the checkbox is on.
+  #
+  # ╔══════════════════════════════════════════════════════════════════════════════╗
+  # ║ ONE-TIME SETUP — do these once, by hand, before the checkbox can publish.      ║
+  # ╚══════════════════════════════════════════════════════════════════════════════╝
+  #
+  #  STEP 1 — Partner Center account (Microsoft Store dev account)
+  #    Go to https://partner.microsoft.com/dashboard → register as an app developer.
+  #    A free-app individual account is a ~$19 one-time fee.
+  #
+  #  STEP 2 — Create the app listing & do the FIRST submission manually
+  #    In Partner Center: Create a new app, reserve its name, fill the Store listing,
+  #    upload this MSIX (download it from the `minimage-msix` artifact of any build),
+  #    and submit. The CLI used below can only UPDATE an app that already exists & is
+  #    live — it cannot create the first submission.
+  #
+  #  STEP 3 — Connect Microsoft Entra (Azure AD) so CI can authenticate
+  #    In Partner Center → Account settings → User management, associate an Entra
+  #    tenant, register an application in it, and assign that app the "Manager" role.
+  #    https://learn.microsoft.com/windows/apps/publish/msstore-dev-cli/github-actions
+  #
+  #  STEP 4 — Add these REPO SECRETS  (GitHub → Settings → Secrets and variables →
+  #           Actions → "Secrets" tab → New repository secret). Names must match exactly:
+  #
+  #      ┌────────────────────────────────────┬───────────────────────────────────────┐
+  #      │ Secret name (create with this name) │ Where to find the value               │
+  #      ├────────────────────────────────────┼───────────────────────────────────────┤
+  #      │ AZURE_AD_TENANT_ID                  │ entra.microsoft.com → Overview →        │
+  #      │                                    │ "Tenant ID"                            │
+  #      │ AZURE_AD_APPLICATION_CLIENT_ID      │ Entra → App registrations → your app → │
+  #      │                                    │ "Application (client) ID"              │
+  #      │ AZURE_AD_APPLICATION_SECRET         │ Entra → App registrations → your app → │
+  #      │                                    │ Certificates & secrets → new client    │
+  #      │                                    │ secret → copy the VALUE immediately    │
+  #      │ SELLER_ID                          │ Partner Center → Account settings →    │
+  #      │                                    │ Identifiers → "Seller ID"              │
+  #      └────────────────────────────────────┴───────────────────────────────────────┘
+  #
+  #  STEP 5 — Add this REPO VARIABLE  (same screen → "Variables" tab → New variable):
+  #
+  #      ┌──────────────────┬──────────────────────────────────────────────────────────┐
+  #      │ Variable name    │ Value                                                     │
+  #      ├──────────────────┼──────────────────────────────────────────────────────────┤
+  #      │ STORE_PRODUCT_ID │ Your app's Store/Product ID from Partner Center (the app   │
+  #      │                  │ "Product ID" / Store ID on the app's overview page).       │
+  #      └──────────────────┴──────────────────────────────────────────────────────────┘
+  #
+  #  That's it. Until all five exist, this job stops early with a friendly summary
+  #  instead of erroring — so it is safe to merge and run right now.
+  store-publish:
+    needs: build
+    if: ${{ inputs.store && inputs.windows && needs.build.result == 'success' }}
+    runs-on: windows-latest
+    steps:
+      - name: Check required secrets/variables
+        id: gate
+        shell: bash
+        env:
+          TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+          PRODUCT_ID: ${{ vars.STORE_PRODUCT_ID }}
+        run: |
+          missing=()
+          [ -z "$TENANT_ID" ]     && missing+=("secret AZURE_AD_TENANT_ID")
+          [ -z "$CLIENT_ID" ]     && missing+=("secret AZURE_AD_APPLICATION_CLIENT_ID")
+          [ -z "$CLIENT_SECRET" ] && missing+=("secret AZURE_AD_APPLICATION_SECRET")
+          [ -z "$SELLER_ID" ]     && missing+=("secret SELLER_ID")
+          [ -z "$PRODUCT_ID" ]    && missing+=("variable STORE_PRODUCT_ID")
+          if [ ${#missing[@]} -ne 0 ]; then
+            {
+              echo "## ⏭️  Microsoft Store auto-publish skipped"
+              echo "The MSIX was still built (see the \`minimage-msix\` artifact) — only auto-submit was skipped because credentials are not configured yet."
+              echo ""
+              echo "Missing:"
+              for m in "${missing[@]}"; do echo "- \`$m\`"; done
+              echo ""
+              echo "Add them under repo Settings → Secrets and variables → Actions. Full instructions are in the comment block above \`store-publish\` in .github/workflows/build.yml."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download MSIX artifact
+        if: ${{ steps.gate.outputs.ready == 'true' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: minimage-msix
+          path: msix
+
+      - name: Resolve MSIX path
+        id: pkg
+        if: ${{ steps.gate.outputs.ready == 'true' }}
+        shell: pwsh
+        run: |
+          $pkg = Get-ChildItem -Path msix -Recurse -Include *.msixbundle,*.msix |
+                 Select-Object -First 1
+          if (-not $pkg) { Write-Error "No .msix/.msixbundle found in artifact."; exit 1 }
+          "path=$($pkg.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "Publishing package: $($pkg.FullName)"
+
+      - name: Configure Microsoft Store CLI
+        if: ${{ steps.gate.outputs.ready == 'true' }}
+        uses: microsoft/microsoft-store-apppublisher@v1.1
+
+      - name: Reconfigure store credentials
+        if: ${{ steps.gate.outputs.ready == 'true' }}
+        run: msstore reconfigure `
+              --tenantId ${{ secrets.AZURE_AD_TENANT_ID }} `
+              --sellerId ${{ secrets.SELLER_ID }} `
+              --clientId ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }} `
+              --clientSecret ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+
+      - name: Publish MSIX to Microsoft Store
+        if: ${{ steps.gate.outputs.ready == 'true' }}
+        run: msstore publish "${{ steps.pkg.outputs.path }}" -id ${{ vars.STORE_PRODUCT_ID }}

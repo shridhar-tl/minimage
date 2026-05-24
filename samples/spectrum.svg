@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fde047"/>
+      <stop offset="1" stop-color="#fb7185"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <circle cx="600" cy="170" r="90" fill="url(#sun)"/>
+  <path d="M0 430 L180 300 L320 410 L470 250 L640 420 L800 320 L800 600 L0 600 Z" fill="#1e293b" opacity="0.85"/>
+  <path d="M0 500 L150 420 L330 520 L520 400 L700 510 L800 460 L800 600 L0 600 Z" fill="#0f172a"/>
+  <text x="400" y="560" font-family="Segoe UI, sans-serif" font-size="34" font-weight="700" fill="#e2e8f0" text-anchor="middle">Minimage · SVG test</text>
+</svg>

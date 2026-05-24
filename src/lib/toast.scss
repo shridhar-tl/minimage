@@ -1,0 +1,53 @@
+.toast-host {
+  position: fixed;
+  bottom: calc(var(--ip-footer-h) + 18px);
+  right: 18px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 380px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--ip-elevated);
+  border: 1px solid var(--ip-border);
+  box-shadow: var(--ip-shadow-lg);
+  color: var(--ip-text);
+  font-size: 13.5px;
+  cursor: pointer;
+  animation: ip-fade-up 0.22s ease;
+
+  &__icon {
+    display: inline-flex;
+    flex: none;
+  }
+  &__msg {
+    line-height: 1.4;
+  }
+
+  &--success &__icon {
+    color: var(--ip-ok);
+  }
+  &--error &__icon {
+    color: var(--ip-err);
+  }
+  &--warn &__icon {
+    color: var(--ip-warn);
+  }
+  &--info &__icon {
+    color: var(--ip-info);
+  }
+
+  &--error {
+    border-color: rgba(251, 113, 133, 0.4);
+  }
+}

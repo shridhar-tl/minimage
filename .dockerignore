@@ -1,0 +1,10 @@
+node_modules
+dist
+release
+src-tauri/target
+src-tauri/gen
+.git
+.github
+**/*.log
+app-icon.png
+.autoqai

@@ -1,0 +1,71 @@
+// Reusable SCSS mixins. Component stylesheets `@use` this with `as *`.
+
+$bp-sm: 640px;
+$bp-md: 860px;
+$bp-lg: 1100px;
+$bp-xl: 1360px;
+
+@mixin glass {
+  background: var(--ip-surface);
+  border: 1px solid var(--ip-border);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+}
+
+@mixin card {
+  background: var(--ip-surface);
+  border: 1px solid var(--ip-border);
+  border-radius: var(--ip-radius);
+}
+
+@mixin focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ip-ring);
+  border-color: transparent;
+}
+
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ip-border-strong) transparent;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--ip-border-strong);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--ip-text-faint);
+    background-clip: padding-box;
+  }
+}
+
+@mixin grad-text {
+  background: var(--ip-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@mixin checker($size: 18px) {
+  background-image:
+    linear-gradient(45deg, rgba(127, 127, 127, 0.22) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(127, 127, 127, 0.22) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(127, 127, 127, 0.22) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(127, 127, 127, 0.22) 75%);
+  background-size: $size $size;
+  background-position: 0 0, 0 $size * 0.5, $size * 0.5 (-$size * 0.5), (-$size * 0.5) 0;
+}

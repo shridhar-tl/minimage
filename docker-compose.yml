@@ -1,0 +1,10 @@
+# Local Windows installer build (no host toolchain needed).
+#   docker compose run --build --rm windows-build
+# The .exe is copied into ./release on the host.
+services:
+  windows-build:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.windows
+    volumes:
+      - ./release:/out
