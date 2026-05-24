@@ -151,7 +151,7 @@ jobs:
       # to the Store is a separate, checkbox-gated job below.
       - name: Build MSIX
         if: ${{ matrix.name == 'windows' }}
-        run: npx -y @choochmeque/tauri-windows-bundle@latest --arch x64 --runner npm
+        run: npx -y @choochmeque/tauri-windows-bundle@latest build --arch x64 --runner npm
 
       - name: Upload MSIX artifact
         if: ${{ matrix.name == 'windows' }}
@@ -169,10 +169,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # tauri-action created the release with the date-stamped tag computed in `prepare`.
+          shopt -s nullglob
           tag="${{ needs.prepare.outputs.tag }}"
-          echo "Uploading MSIX assets to release $tag"
-          gh release upload "$tag" src-tauri/target/msix/*.msix src-tauri/target/msix/*.msixbundle --clobber
+          assets=(src-tauri/target/msix/*.msix src-tauri/target/msix/*.msixbundle)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No MSIX assets found in src-tauri/target/msix/" >&2
+            exit 1
+          fi
+          echo "Uploading ${#assets[@]} MSIX asset(s) to release $tag: ${assets[*]}"
+          gh release upload "$tag" "${assets[@]}" --clobber
 
   # Publish the freshly built MSIX to the Microsoft Store.
   #
