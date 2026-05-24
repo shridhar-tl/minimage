@@ -101,10 +101,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.7.8
         with:
           workspaces: src-tauri -> target
           key: ${{ matrix.name }}
+          # Don't cache ~/.cargo/bin: it's where the MSIX step installs
+          # msixbundle-cli, and caching that churning dir on Windows both
+          # conflicts with that install and triggers tar/zstd restore failures.
+          cache-bin: false
 
       - name: Install frontend dependencies
         run: npm install --force
