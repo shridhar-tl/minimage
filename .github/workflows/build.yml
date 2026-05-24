@@ -73,6 +73,30 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Release tag: $tag"
 
+      # Create the Release ONCE here (when requested) so the parallel matrix jobs
+      # can each `gh release upload` their zips into it without racing to create it.
+      # tauri-action no longer creates/uploads the Release — every asset is a clean,
+      # per-file zip attached by the build jobs, so the Release holds only those.
+      - name: Create GitHub Release
+        if: ${{ inputs.release }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.set.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists — reusing it."
+            exit 0
+          fi
+          flags=()
+          [ "${{ inputs.draft }}" = "true" ]      && flags+=(--draft)
+          [ "${{ inputs.prerelease }}" = "true" ] && flags+=(--prerelease)
+          gh release create "$tag" \
+            --title "Minimage $tag" \
+            --notes $'Minimage — batch image resizer, converter and optimizer.\nDownload the installer for your OS below.' \
+            "${flags[@]}"
+          echo "Created release $tag"
+
   build:
     needs: prepare
     if: ${{ needs.prepare.outputs.any == 'true' }}
@@ -119,33 +143,89 @@ jobs:
         run: |
           node -e "const f='src-tauri/tauri.conf.json';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.version='${{ inputs.version }}';fs.writeFileSync(f, JSON.stringify(j,null,2)+'\n');console.log('version =', j.version)"
 
-      - name: Build (and release if requested)
+      # Build only — no release upload. tauri-action attaches its raw installers to
+      # the Release when given a tagName; we omit it so the Release carries only the
+      # clean per-file zips produced below. The Release is created in `prepare`.
+      - name: Build
         uses: tauri-apps/tauri-action@v0
         id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ inputs.release && needs.prepare.outputs.tag || '' }}
-          releaseName: ${{ inputs.release && format('Minimage {0}', needs.prepare.outputs.tag) || '' }}
-          releaseBody: |
-            Minimage — batch image resizer, converter and optimizer.
-            Download the installer for your OS below.
-          releaseDraft: ${{ inputs.draft }}
-          prerelease: ${{ inputs.prerelease }}
           args: ${{ matrix.args }}
 
-      - name: Upload artifacts
+      # Package each macOS/Linux installer as its own flat zip (no folders inside),
+      # matching the Windows treatment. `zip -j` junks the source path so the zip
+      # contains only the file itself. The .app is skipped — the .dmg is the macOS
+      # distributable; the .app exists only to produce it.
+      - name: Package macOS / Linux zips
+        if: ${{ matrix.name != 'windows' }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          ver="${{ inputs.version }}"
+          if [ -z "$ver" ]; then ver=$(node -p "require('./src-tauri/tauri.conf.json').version"); fi
+          stage="dist-unix"
+          mkdir -p "$stage"
+          pack() {
+            local src="$1" zipname="$2"
+            [ -e "$src" ] || { echo "Skipping missing $src"; return; }
+            zip -j "$stage/$zipname" "$src"
+            echo "Packed $src -> $zipname"
+          }
+          for f in src-tauri/target/release/bundle/dmg/*.dmg; do
+            pack "$f" "Minimage-$ver-$(basename "$f").zip"
+          done
+          for f in src-tauri/target/release/bundle/deb/*.deb; do
+            pack "$f" "Minimage-$ver-$(basename "$f").zip"
+          done
+          for f in src-tauri/target/release/bundle/appimage/*.AppImage; do
+            pack "$f" "Minimage-$ver-$(basename "$f").zip"
+          done
+          echo "Staged zips:"; ls -1 "$stage"
+
+      # One artifact per installer type. The glob in each step only matches on the
+      # OS that produces it (dmg→macOS, deb/appimage→Linux); the others no-op via
+      # if-no-files-found: ignore. Same flat-zip guarantee as Windows.
+      - name: Upload dmg artifact
+        if: ${{ matrix.name == 'macos' }}
         uses: actions/upload-artifact@v7
         with:
-          name: minimage-${{ matrix.name }}
+          name: minimage-macos-dmg
           if-no-files-found: warn
-          path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/macos/*.app
-            src-tauri/target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/appimage/*.AppImage
+          path: dist-unix/*.dmg.zip
+
+      - name: Upload deb artifact
+        if: ${{ matrix.name == 'linux' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimage-linux-deb
+          if-no-files-found: warn
+          path: dist-unix/*.deb.zip
+
+      - name: Upload AppImage artifact
+        if: ${{ matrix.name == 'linux' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimage-linux-appimage
+          if-no-files-found: warn
+          path: dist-unix/*.AppImage.zip
+
+      - name: Attach macOS / Linux zips to GitHub Release
+        if: ${{ matrix.name != 'windows' && inputs.release }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          tag="${{ needs.prepare.outputs.tag }}"
+          assets=(dist-unix/*.zip)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No macOS/Linux zips found in dist-unix/" >&2
+            exit 1
+          fi
+          echo "Uploading ${#assets[@]} zip(s) to release $tag: ${assets[*]}"
+          gh release upload "$tag" "${assets[@]}" --clobber
 
       # ── MSIX (Windows only) ──────────────────────────────────────────────────────
       # Tauri can't emit MSIX natively, so we build it with the community packager.
@@ -163,11 +243,34 @@ jobs:
         if: ${{ matrix.name == 'windows' }}
         run: cargo binstall -y msixbundle-cli
 
+      # `build` needs gen/windows/AppxManifest.xml.template and gen/windows/Assets/,
+      # which are produced by `init` — not committed (only bundle.config.json is).
+      # `init` is non-interactive but UNCONDITIONALLY overwrites bundle.config.json
+      # with a CN=YourCompany placeholder, so we stash our hand-maintained config
+      # first and restore it afterwards, keeping the manifest + assets it generated.
+      - name: Init MSIX scaffolding
+        if: ${{ matrix.name == 'windows' }}
+        shell: pwsh
+        run: |
+          $cfg = "src-tauri/gen/windows/bundle.config.json"
+          $bak = "$cfg.committed"
+          Copy-Item $cfg $bak -Force
+          npx -y @choochmeque/tauri-windows-bundle@latest init
+          Copy-Item $bak $cfg -Force
+          Remove-Item $bak -Force
+          if (-not (Test-Path "src-tauri/gen/windows/AppxManifest.xml.template")) {
+            Write-Error "init did not produce AppxManifest.xml.template"; exit 1
+          }
+          Write-Host "MSIX scaffolding ready; committed bundle.config.json restored."
+
       - name: Build MSIX
         if: ${{ matrix.name == 'windows' }}
         run: npx -y @choochmeque/tauri-windows-bundle@latest build --arch x64 --runner npm
 
-      - name: Upload MSIX artifact
+      # Raw (unzipped) MSIX, consumed only by the store-publish job below — the
+      # Microsoft Store CLI needs the bare .msix/.msixbundle, not a zip. This is an
+      # internal hand-off artifact; the user-facing MSIX download is the zip below.
+      - name: Upload raw MSIX (for Store job)
         if: ${{ matrix.name == 'windows' }}
         uses: actions/upload-artifact@v7
         with:
@@ -177,7 +280,83 @@ jobs:
             src-tauri/target/msix/*.msix
             src-tauri/target/msix/*.msixbundle
 
-      - name: Attach MSIX to GitHub Release
+      # ── Package every Windows output as a flat, single-file zip ───────────────────
+      # Tauri/upload-artifact would otherwise nest each file under its deep build
+      # path (…/release/bundle/msi/…). Instead we gather the four outputs into a
+      # staging dir under clean versioned names, then zip EACH on its own with no
+      # folder structure inside. These zips feed both the artifacts and the Release
+      # so the asset you download is exactly the zip you want — nothing nested.
+      #   • portable  → the standalone Minimage.exe
+      #   • msi       → the .msi installer
+      #   • nsis      → the NSIS setup .exe
+      #   • msix      → the .msix/.msixbundle (Store package)
+      - name: Package Windows zips
+        if: ${{ matrix.name == 'windows' }}
+        shell: pwsh
+        run: |
+          $ver = node -p "require('./src-tauri/tauri.conf.json').version"
+          $rel = "src-tauri/target/x86_64-pc-windows-msvc/release"
+          $stage = "dist-windows"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          function Add-Zip([string]$src, [string]$zipName) {
+            if (-not $src -or -not (Test-Path $src)) {
+              Write-Error "Expected file not found: $src"; exit 1
+            }
+            $zipPath = Join-Path $stage $zipName
+            Compress-Archive -Path $src -DestinationPath $zipPath -Force
+            Write-Host "Packed $src -> $zipName"
+          }
+
+          $exe  = Join-Path $rel "Minimage.exe"
+          $msi  = Get-ChildItem -Path (Join-Path $rel "bundle/msi")  -Filter *.msi  -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          $nsis = Get-ChildItem -Path (Join-Path $rel "bundle/nsis") -Filter *.exe  -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          $msix = Get-ChildItem -Path "src-tauri/target/msix" -Include *.msixbundle,*.msix -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          Add-Zip $exe        "Minimage-$ver-x64-portable.zip"
+          Add-Zip $msi.FullName  "Minimage-$ver-x64-msi.zip"
+          Add-Zip $nsis.FullName "Minimage-$ver-x64-setup.zip"
+          Add-Zip $msix.FullName "Minimage-$ver-x64-msix.zip"
+
+          Write-Host "Staged Windows zips:"
+          Get-ChildItem $stage | ForEach-Object { Write-Host "  $($_.Name)" }
+
+      # One artifact PER installer, so each downloads on its own as a flat zip
+      # holding just that file. (GitHub wraps every artifact in its own outer zip
+      # layer; one file per artifact keeps that single layer flat — no folders.)
+      - name: Upload portable exe artifact
+        if: ${{ matrix.name == 'windows' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimage-windows-portable
+          if-no-files-found: error
+          path: dist-windows/Minimage-*-x64-portable.zip
+
+      - name: Upload msi artifact
+        if: ${{ matrix.name == 'windows' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimage-windows-msi
+          if-no-files-found: error
+          path: dist-windows/Minimage-*-x64-msi.zip
+
+      - name: Upload nsis setup artifact
+        if: ${{ matrix.name == 'windows' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimage-windows-setup
+          if-no-files-found: error
+          path: dist-windows/Minimage-*-x64-setup.zip
+
+      - name: Upload msix artifact
+        if: ${{ matrix.name == 'windows' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimage-windows-msix
+          if-no-files-found: error
+          path: dist-windows/Minimage-*-x64-msix.zip
+
+      - name: Attach Windows zips to GitHub Release
         if: ${{ matrix.name == 'windows' && inputs.release }}
         shell: bash
         env:
@@ -185,12 +364,12 @@ jobs:
         run: |
           shopt -s nullglob
           tag="${{ needs.prepare.outputs.tag }}"
-          assets=(src-tauri/target/msix/*.msix src-tauri/target/msix/*.msixbundle)
+          assets=(dist-windows/*.zip)
           if [ ${#assets[@]} -eq 0 ]; then
-            echo "No MSIX assets found in src-tauri/target/msix/" >&2
+            echo "No Windows zips found in dist-windows/" >&2
             exit 1
           fi
-          echo "Uploading ${#assets[@]} MSIX asset(s) to release $tag: ${assets[*]}"
+          echo "Uploading ${#assets[@]} Windows zip(s) to release $tag: ${assets[*]}"
           gh release upload "$tag" "${assets[@]}" --clobber
 
   # Publish the freshly built MSIX to the Microsoft Store.
