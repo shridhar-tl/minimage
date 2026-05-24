@@ -135,7 +135,6 @@ pub async fn read_preview(
         let (ow, oh) = source.dimensions();
 
         let size = SizeSpec {
-            id: "preview".into(),
             label: "preview".into(),
             width: Some(max.max(1)),
             height: Some(max.max(1)),
@@ -148,7 +147,6 @@ pub async fn read_preview(
         let buf = engine.render(source.as_ref(), &plan, [0, 0, 0, 0])?;
 
         let fmt = FormatSpec {
-            id: "preview".into(),
             format: OutputFormat::Png,
             quality: None,
             lossless: true,

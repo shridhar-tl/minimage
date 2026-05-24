@@ -57,7 +57,7 @@ jobs:
         run: |
           include='[]'
           add() { include=$(echo "$include" | jq -c ". += [$1]"); }
-          if [ "${{ inputs.windows }}" = "true" ]; then add '{"name":"windows","runner":"windows-latest","args":"--bundles nsis,msi --features webp-lossy"}'; fi
+          if [ "${{ inputs.windows }}" = "true" ]; then add '{"name":"windows","runner":"windows-latest","args":"--bundles nsis,msi --features webp-lossy --target x86_64-pc-windows-msvc"}'; fi
           if [ "${{ inputs.macos }}"   = "true" ]; then add '{"name":"macos","runner":"macos-latest","args":"--bundles app,dmg --features webp-lossy"}'; fi
           if [ "${{ inputs.linux }}"   = "true" ]; then add '{"name":"linux","runner":"ubuntu-22.04","args":"--bundles deb,appimage --features webp-lossy"}'; fi
           echo "matrix={\"include\":$include}" >> "$GITHUB_OUTPUT"
@@ -136,8 +136,8 @@ jobs:
           name: minimage-${{ matrix.name }}
           if-no-files-found: warn
           path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/macos/*.app
             src-tauri/target/release/bundle/deb/*.deb
@@ -149,9 +149,15 @@ jobs:
       # submission, so no code-signing certificate/secret is needed for the Store path.
       # The .msix is always produced (artifact + optional Release asset); auto-submit
       # to the Store is a separate, checkbox-gated job below.
+      # Install the MSIX packer as a PREBUILT binary (cargo-binstall) instead of
+      # `cargo install`, which compiles it from source (~minutes) on every run.
+      - name: Install cargo-binstall
+        if: ${{ matrix.name == 'windows' }}
+        uses: cargo-bins/cargo-binstall@main
+
       - name: Install msixbundle-cli
         if: ${{ matrix.name == 'windows' }}
-        run: cargo install msixbundle-cli
+        run: cargo binstall -y msixbundle-cli
 
       - name: Build MSIX
         if: ${{ matrix.name == 'windows' }}

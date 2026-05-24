@@ -49,38 +49,6 @@ impl NameCtx<'_> {
     }
 }
 
-/// Token reference, surfaced to the UI as hints. (token, description)
-pub const TOKENS: &[(&str, &str)] = &[
-    ("{name}", "Original file name (no extension)"),
-    ("{ext}", "Output extension (jpg, webp, …)"),
-    ("{origext}", "Original extension"),
-    ("{width}", "Output width in px"),
-    ("{height}", "Output height in px"),
-    ("{w}", "Output width (short)"),
-    ("{h}", "Output height (short)"),
-    ("{ow}", "Original width in px"),
-    ("{oh}", "Original height in px"),
-    ("{format}", "Output format name"),
-    ("{quality}", "Quality value used (lossy formats)"),
-    ("{effort}", "Compression effort (WebP/AVIF)"),
-    ("{pnglevel}", "PNG compression level (0–6)"),
-    ("{lossless}", "\"lossless\" or \"lossy\""),
-    ("{enc}", "Compact encoding tag (e.g. q80e4, l2, lossless)"),
-    ("{sizelabel}", "Label of the size preset"),
-    ("{index}", "Sequence number"),
-    ("{idx}", "Sequence number, zero-padded (001)"),
-    ("{dd}", "Day, 2 digits"),
-    ("{d}", "Day"),
-    ("{MM}", "Month, 2 digits"),
-    ("{M}", "Month"),
-    ("{YYYY}", "Year, 4 digits"),
-    ("{YY}", "Year, 2 digits"),
-    ("{HH}", "Hour (24h), 2 digits"),
-    ("{hh}", "Hour (12h), 2 digits"),
-    ("{mm}", "Minute, 2 digits"),
-    ("{ss}", "Second, 2 digits"),
-];
-
 pub fn render_filename(template: &str, ctx: &NameCtx) -> String {
     let now = Local::now();
     let two = |n: u32| format!("{n:02}");

@@ -39,10 +39,6 @@ impl Plan {
             off_y: 0,
         }
     }
-    /// Output dimensions of the final framed image.
-    pub fn output_dims(&self) -> (u32, u32) {
-        (self.canvas_w, self.canvas_h)
-    }
 }
 
 /// Straight-alpha RGBA8 pixel buffer (row-major, 4 bytes per pixel).
@@ -68,8 +64,6 @@ pub trait LoadedImage: Send + Sync {
 
 /// The pluggable imaging backend.
 pub trait ImageEngine: Send + Sync {
-    fn name(&self) -> &'static str;
-
     /// Cheap width/height/format probe (no full decode where avoidable).
     fn probe(&self, bytes: &[u8], ext_hint: Option<&str>) -> anyhow::Result<ProbeInfo>;
 

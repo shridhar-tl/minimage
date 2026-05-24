@@ -38,7 +38,6 @@ pub enum ResizeMode {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SizeSpec {
-    pub id: String,
     #[serde(default)]
     pub label: String,
     pub width: Option<u32>,
@@ -105,7 +104,6 @@ impl OutputFormat {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FormatSpec {
-    pub id: String,
     pub format: OutputFormat,
     /// Lossy quality 1..=100 (ignored when `lossless`).
     pub quality: Option<u8>,

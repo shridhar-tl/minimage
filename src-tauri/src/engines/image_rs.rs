@@ -81,10 +81,6 @@ impl ImageRsEngine {
 }
 
 impl ImageEngine for ImageRsEngine {
-    fn name(&self) -> &'static str {
-        "image-rs"
-    }
-
     fn probe(&self, bytes: &[u8], ext_hint: Option<&str>) -> Result<ProbeInfo> {
         if looks_like_svg(bytes, ext_hint) {
             let tree = parse_svg(bytes, false)?;
